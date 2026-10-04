@@ -1,3 +1,21 @@
+const fs = require('fs');
+
+function loadHistory() {
+    try {
+        const text = fs.readFileSync('history.json', 'utf8');
+        return JSON.parse(text);
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveHistory(history) {
+    fs.writeFileSync('history.json', JSON.stringify(history, null, 2));
+}
+
+const history = loadHistory();
+
+
 const challenges = {
     'Cider & Shadows': [
         'A cozy mystery 🍂',
@@ -62,14 +80,42 @@ function pickRandom(array) {
     return array[index];
 }
 
-if (args[0] === 'all') {
-    Object.keys(challenges).forEach(function(name) {
-        console.log(name + ': ' + pickRandom(challenges[name]));
+function drawFrom(name) {
+    const drawn = history
+        .filter(function(draw) { return draw.challenge === name; })
+        .map(function(draw) { return draw.prompt; });
+    let remaining = challenges[name].filter(function(prompt) {
+        return drawn.indexOf(prompt) === -1;
     });
+    if (remaining.length === 0) {
+        console.log('(All prompts drawn for ' + name + ' — reshuffling!)');
+        remaining = challenges[name];
+    }
+    const prompt = pickRandom(remaining);
+    history.push({
+        challenge: name,
+        prompt: prompt,
+        date: new Date().toISOString().slice(0, 10)
+    });
+    return prompt;
+}
+
+
+
+if (args[0] === 'history') {
+    if (history.length === 0) {
+        console.log('No draws yet — the fates are waiting.');
+    } else {
+        history.forEach(function(draw) {
+            console.log(draw.date + ' — ' + draw.challenge + ': ' + draw.prompt);
+        });
+    }
+} else if (args[0] === 'all') {
+    Object.keys(challenges).forEach(function(name) {
+        console.log(name + ': ' + drawFrom(name));
+    });
+    saveHistory(history);
 } else if (args[0]) {
-
-
-if (args[0]) {
     const name = Object.keys(challenges).find(function(key) {
         return key.toLowerCase() === args[0].toLowerCase();
     });
@@ -77,10 +123,12 @@ if (args[0]) {
         console.log('No challenge named "' + args[0] + '"');
         console.log('Challenges: ' + Object.keys(challenges).join(', '));
     } else {
-        console.log(name + ': ' + pickRandom(challenges[name]));
+        console.log(name + ': ' + drawFrom(name));
+        saveHistory(history);
     }
 } else {
     const names = Object.keys(challenges);
     const name = pickRandom(names);
-    console.log(name + ': ' + pickRandom(challenges[name]));
-}}
+    console.log(name + ': ' + drawFrom(name));
+    saveHistory(history);
+}
